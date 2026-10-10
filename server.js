@@ -23,7 +23,7 @@ app.post('/api/create-payment', async (req, res) => {
     const { amount, orderId, customerEmail } = req.body;
 
     // Récupère l'URL de Render ou utilise localhost par défaut
-    const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3000';
+    const SERVER_URL = cle_api.env.SERVER_URL || 'http://localhost:3000';
 
     const response = await axios.post(
       'https://api.nyole.com/v1/sessions',
