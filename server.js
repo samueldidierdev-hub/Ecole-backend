@@ -2,14 +2,16 @@ const express = require('express');
 const axios = require('axios');
 const path = require('path');
 const crypto = require('crypto');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
-// 0. Route d'accueil pour éviter le message "Cannot GET /" dans le navigateur
+// 0. Route d'accueil
 app.get('/', (req, res) => {
-  res.send('🚀 Bienvenue sur le backend de l\'application École (Service de paiement Nyole actif) !');
+  res.send('🚀 Bienvenue sur le backend de l\'application (Service de paiement Nyole actif) !');
 });
 
 // 1. Route pour afficher la page de confirmation HTML
@@ -21,17 +23,16 @@ app.get('/payment-complete', (req, res) => {
 app.post('/api/create-payment', async (req, res) => {
   try {
     const { amount, orderId, customerEmail } = req.body;
-
-    // Récupère l'URL de Render ou utilise localhost par défaut
     const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3000';
 
+    // Appel corrigé vers l'endpoint officiel de l'API Nyole
     const response = await axios.post(
-      'https://api.nyole.com/v1/sessions',
+      'https://app.nyole.com/api/v1/checkout/sessions',
       {
-        amount: amount,
+        amount: amount || 5000,
         currency: 'FC',
-        order_id: orderId,
-        customer_email: customerEmail,
+        customer_email: customerEmail || 'test@example.com',
+        order_id: orderId || 'CS-MU8A1B-2C0X1',
         redirect_url: `${SERVER_URL}/payment-complete`,
       },
       {
@@ -44,8 +45,9 @@ app.post('/api/create-payment', async (req, res) => {
 
     res.status(200).json({
       success: true,
-      paymentUrl: response.data.payment_url,
-      sessionId: response.data.session_id,
+      paymentUrl: response.data.url, // URL renvoyée par l'API Nyole
+      sessionId: response.data.id,   // ID de la session
+      orderId: response.data.order_id
     });
   } catch (error) {
     console.error('Erreur Nyole:', error.response?.data || error.message);
@@ -57,10 +59,9 @@ app.post('/api/create-payment', async (req, res) => {
   }
 });
 
-// --- FONCTION EXPERT : Vérification de la signature du Webhook ---
+// --- FONCTION : Vérification de la signature du Webhook ---
 function verifyNyoleSignature(req) {
   const signature = req.headers['x-nyole-signature'];
-  
   if (!process.env.NYOLE_WEBHOOK_SECRET) return true; 
   if (!signature) return false;
 
@@ -71,26 +72,20 @@ function verifyNyoleSignature(req) {
   return signature === digest;
 }
 
-// 3. Route Webhook avec vérification rigoureuse de la signature
-app.post('/api/webhooks/nyole', (req, res) => {
+// 3. Route Webhook de réception des notifications de paiement
+app.post('/api/webhooks/cartflox', (req, res) => {
   if (!verifyNyoleSignature(req)) {
     console.warn('[SECURITY] Alerte : Tentative de webhook avec une signature invalide !');
     return res.status(400).json({ error: 'Signature invalide' });
   }
 
   const event = req.body;
-
-  if (event.type === 'payment.success' || event.status === 'success') {
-    const orderId = event.order_id || event.data?.order_id;
-    const sessionId = event.session_id || event.data?.session_id;
-
-    console.log(`[WEBHOOK] Sécurité validée - Paiement réussi pour la commande : ${orderId} (Session: ${sessionId})`);
-  }
+  console.log('[WEBHOOK] Événement reçu :', event);
 
   res.status(200).json({ received: true });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`🚀 Serveur démarré et à l'écoute sur le port ${PORT}`);
 });
