@@ -30,7 +30,7 @@ app.post('/api/create-payment', async (req, res) => {
       'https://app.nyole.com/api/v1/checkout/sessions',
       {
         amount: amount || 5000,
-        currency: 'FC',
+        currency: 'CDF',
         customer_email: customerEmail || 'test@example.com',
         order_id: orderId || 'CS-MU8A1B-2C0X1',
         redirect_url: `${SERVER_URL}/payment-complete`,
